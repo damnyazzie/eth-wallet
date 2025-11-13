@@ -1,65 +1,150 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 
 export default function Home() {
+  const [wallet, setWallet] = useState<ethers.Wallet | null>(null);
+  const [address, setAddress] = useState("");
+  const [balance, setBalance] = useState("");
+  const [amount, setAmount] = useState("");
+  const [to, setTo] = useState("");
+  const [network, setNetwork] = useState("mainnet");
+
+  useEffect(() => {
+    if (localStorage.getItem("encryptedWallet")) {
+      decryptWallet();
+    }
+  }, []);
+
+  async function createWallet() {
+    const newWallet = ethers.Wallet.createRandom();
+    const password = prompt("Set a password to encrypt your wallet:");
+    if (!password) return;
+
+    const encrypted = await newWallet.encrypt(password);
+    localStorage.setItem("encryptedWallet", encrypted);
+    setWallet(newWallet);
+    setAddress(newWallet.address);
+    alert("✅ Wallet created and encrypted locally!");
+  }
+
+  async function decryptWallet() {
+    const encrypted = localStorage.getItem("encryptedWallet");
+    if (!encrypted) return alert("No wallet found. Create one first.");
+    const password = prompt("Enter your wallet password:");
+    if (!password) return;
+
+    try {
+      const decrypted = await ethers.Wallet.fromEncryptedJson(encrypted, password);
+      setWallet(decrypted);
+      setAddress(decrypted.address);
+      fetchBalance(decrypted);
+    } catch {
+      alert("❌ Incorrect password or corrupted wallet file.");
+    }
+  }
+
+  async function fetchBalance(w: ethers.Wallet) {
+    try {
+      const provider = new ethers.JsonRpcProvider(
+        "https://mainnet.infura.io/v3/1252763ea6bb46dc813c699669005437"
+      );
+      const bal = await provider.getBalance(w.address);
+      setBalance(ethers.formatEther(bal));
+    } catch (err) {
+      console.error(err);
+      alert("Error fetching balance. Check network or Infura key.");
+    }
+  }
+
+  async function sendTransaction() {
+    if (!wallet) return alert("Unlock your wallet first!");
+    if (!to || !amount) return alert("Enter recipient and amount.");
+
+    try {
+      const provider = new ethers.JsonRpcProvider(
+        "https://mainnet.infura.io/v3/1252763ea6bb46dc813c699669005437"
+      );
+      const signer = wallet.connect(provider);
+
+      const tx = await signer.sendTransaction({
+        to,
+        value: ethers.parseEther(amount),
+      });
+
+      alert(`✅ Transaction sent!\nHash: ${tx.hash}`);
+    } catch (err: any) {
+      console.error(err);
+      alert(`❌ Error: ${err.message}`);
+    }
+  }
+
+  function resetWallet() {
+    localStorage.removeItem("encryptedWallet");
+    setWallet(null);
+    setAddress("");
+    setBalance("");
+    alert("Wallet removed from local storage.");
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div
+      style={{
+        padding: 40,
+        fontFamily: "system-ui, sans-serif",
+        maxWidth: 600,
+        margin: "0 auto",
+      }}
+    >
+      <h1>🦊 Decentralized Web Wallet</h1>
+
+      {!wallet ? (
+        <div style={{ marginTop: 20 }}>
+          <button onClick={createWallet}>Create New Wallet</button>
+          <span style={{ margin: "0 10px" }}>or</span>
+          <button onClick={decryptWallet}>Unlock Existing Wallet</button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      ) : (
+        <>
+          <div style={{ marginTop: 20, wordBreak: "break-all" }}>
+            <p><b>Address:</b> {address}</p>
+            <p><b>Balance:</b> {balance ? `${balance} ETH` : "Loading..."}</p>
+          </div>
+
+          <button onClick={() => fetchBalance(wallet)}>🔄 Refresh Balance</button>
+          <button style={{ marginLeft: 10 }} onClick={resetWallet}>
+            🧹 Reset Wallet
+          </button>
+
+          <div style={{ marginTop: 30 }}>
+            <h3>💸 Send ETH</h3>
+            <input
+              placeholder="Recipient Address"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              style={{
+                width: "100%",
+                marginBottom: 10,
+                padding: 8,
+                fontSize: 16,
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+            <input
+              placeholder="Amount (ETH)"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              style={{
+                width: "100%",
+                marginBottom: 10,
+                padding: 8,
+                fontSize: 16,
+              }}
+            />
+            <button onClick={sendTransaction}>🚀 Send</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
