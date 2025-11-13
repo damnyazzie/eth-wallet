@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 
 export default function Home() {
-  const [wallet, setWallet] = useState<ethers.Wallet | null>(null);
+  const [wallet, setWallet] = useState<ethers.HDNodeWallet | null>(null);
   const [address, setAddress] = useState("");
   const [balance, setBalance] = useState("");
   const [amount, setAmount] = useState("");
