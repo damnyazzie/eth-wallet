@@ -1,11 +1,14 @@
+// app/page.tsx
 "use client";
 
-import { useState<Wallet | HDNodeWallet | null>(null) } from "react";
+import { useState } from "react";
 import { ethers } from "ethers";
+// if you need the types, import them as types (optional)
+import type { Wallet, HDNodeWallet } from "ethers";
 
 export default function Home() {
-  // State variables
-  const [wallet, setWallet] = useState<Wallet | HDNodeWallet | null>(null)<ethers.Wallet | ethers.HDNodeWallet | null>(null);
+  // use the generic on the useState call, not in the import
+  const [wallet, setWallet] = useState<Wallet | HDNodeWallet | null>(null);
 
   const [address, setAddress] = useState<Wallet | HDNodeWallet | null>(null)<string>("");
   const [balance, setBalance] = useState<Wallet | HDNodeWallet | null>(null)<string>("");
